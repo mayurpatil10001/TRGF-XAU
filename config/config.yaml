@@ -1,0 +1,96 @@
+seed: 42
+
+data:
+  path: data/raw/xauusd_1m.csv
+  timezone_in: "UTC"          # set to "auto" to trigger detection; ask if ambiguous
+  timezone_out: "UTC"
+  main_start: "2026-06-22"
+  dev_end: "2026-09-28"             # last 2 days as holdout buffer
+  holdout_start: "2026-09-28"       # TOUCHED ONCE at the very end
+  full_period_experiment: false
+  min_price: 100.0
+  max_gap_minutes: 30
+
+symbol:
+  name: "XAUUSD"                 # auto-resolve suffixes (XAUUSDm, XAUUSD.a, ...)
+  contract_size: 100             # oz per lot; read from MT5 when available
+  point: 0.01
+
+costs:
+  spread_price_units: 0.25       # fallback constant spread (price units)
+  slippage_price_units: 0.05
+  commission_per_lot_round_trip: 7.0   # USD per round-trip lot
+  spread_stress: [1.0, 1.5, 2.0]
+
+features:
+  lookback: 10          # reduced to fit 762MB free RAM (10x182x29K x 4B = 212MB)
+  atr_period: 14
+  vol_windows: [5, 15, 30]
+  ema_periods: [20, 50, 200]
+
+labels:
+  horizon_bars: [1, 3, 5]
+  tp_atr_mult_k: [0.5, 0.75, 1.0]
+  sl_atr_mult_m: [0.5, 0.75, 1.0]
+
+walk_forward:
+  train_months: 1            # ~1 calendar month of 1M bars
+  val_months: 1
+  test_months: 1
+  step_months: 1
+  embargo_trading_days: 1    # 1 day embargo
+
+model:
+  names: [lgbm, mlp, gated_fusion]   # lstm+transformer omitted: OOM with 762MB free RAM
+  epochs_max: 30
+  early_stop_patience: 5
+  batch_size: 512
+  lr_grid: [1.0e-3, 3.0e-4]
+  dropout_grid: [0.1, 0.3]
+  weight_decay_grid: [1.0e-4]
+
+decision:
+  prob_threshold_grid: [0.30, 0.32, 0.34, 0.36, 0.38]  # live=0.30 (model noise floor ~0.33)
+  max_spread_price_units: 0.40
+  sessions_allowed: ["london", "ny", "overlap"]
+  blackout_utc: ["21:55-23:05"]
+  news_blackout_file: null
+  min_expected_R: 0.0
+
+risk:
+  risk_fraction_kappa: 0.01
+  max_open_positions: 1
+  max_consecutive_losses: 10      # relaxed for DEMO testing
+  daily_loss_limit_pct: 20.0      # relaxed for DEMO testing (reset at midnight UTC)
+  cooldown_bars_after_exit: 1
+
+profit_gate:
+  min_oos_trades: 30           # reduced: only 3 OOS months available
+  min_profit_factor: 1.1
+  min_positive_fold_fraction: 0.60
+  require_positive_at_spread_mult: 1.5
+  require_bootstrap_ci_lower_gt_zero: false  # disabled: too few trades for meaningful CI
+
+live:
+  mode: "demo"                   # demo | paper | live
+  allow_live_money: false
+  demo_override_gate: true       # allow demo trades even if gate FAILED (never applies to live money)
+  magic_number: 20260930
+  deviation_points: 20
+  max_data_staleness_seconds: 90
+  kill_switch_file: "KILL"
+
+sessions:
+  asia:    ["00:00", "07:00"]
+  london:  ["07:00", "12:00"]
+  overlap: ["12:00", "16:00"]
+  ny:      ["16:00", "21:00"]
+
+training:
+  lambda_nll_ce: 1.0             # NLL + lambda*CE
+  grad_clip: 1.0
+  hp_search_folds: 2             # only first N folds used for HP search
+
+logging:
+  level: "INFO"
+  log_dir: "logs"

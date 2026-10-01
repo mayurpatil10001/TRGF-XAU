@@ -1,0 +1,107 @@
+/* index.css — TEGF-XAU Dashboard Design System */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Color Palette */
+  --bg-primary: #0a0b0f;
+  --bg-secondary: #0f1117;
+  --bg-card: #13151d;
+  --bg-card-hover: #181b26;
+  --bg-glass: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --border-accent: rgba(99,179,237,0.3);
+
+  --text-primary: #e8eaf0;
+  --text-secondary: #8b92a8;
+  --text-muted: #555d75;
+
+  --green: #34d399;
+  --green-dim: rgba(52,211,153,0.15);
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,0.15);
+  --blue: #60a5fa;
+  --blue-dim: rgba(96,165,250,0.12);
+  --yellow: #fbbf24;
+  --yellow-dim: rgba(251,191,36,0.12);
+  --purple: #a78bfa;
+  --orange: #fb923c;
+
+  --accent: #63b3ed;
+  --accent-glow: rgba(99,179,237,0.2);
+
+  /* Gradients */
+  --gradient-gold: linear-gradient(135deg, #f59e0b, #d97706);
+  --gradient-green: linear-gradient(135deg, #34d399, #10b981);
+  --gradient-red: linear-gradient(135deg, #f87171, #ef4444);
+  --gradient-card: linear-gradient(145deg, #13151d, #0f1117);
+
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0; padding: 0;
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: #2a3045; border-radius: 3px; }
+
+/* Tabular nums for financial figures */
+.tabular { font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
+
+/* Glass card */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card:hover { border-color: var(--border-accent); }
+
+/* KPI flash animation */
+@keyframes flash-green {
+  0%, 100% { background: transparent; }
+  50% { background: var(--green-dim); }
+}
+@keyframes flash-red {
+  0%, 100% { background: transparent; }
+  50% { background: var(--red-dim); }
+}
+.flash-green { animation: flash-green 0.6s ease; }
+.flash-red { animation: flash-red 0.6s ease; }
+
+/* Status pills */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.pill-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+.pill-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+.pill-yellow { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
+.pill-blue { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(96,165,250,0.2); }
+.pill-purple { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+
+/* Stale banner */
+.stale-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  color: #000; font-weight: 700; text-align: center;
+  padding: 8px; font-size: 13px; letter-spacing: 1px;
+}
+
+/* Pulse dot */
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.pulse-dot { width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; }
+.pulse-dot.green { background: var(--green); }
+.pulse-dot.red { background: var(--red); }
+.pulse-dot.gray { background: #555; animation: none; }
