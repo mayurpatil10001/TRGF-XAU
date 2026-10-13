@@ -107,7 +107,9 @@ def group_c(df: pd.DataFrame) -> pd.DataFrame:
         out[f"vol_roll_std_{w}"] = roll.std().fillna(0.0)
         med = roll.median()
         mad = (log_vol - med).abs().rolling(w, min_periods=1).median()
-        out[f"vol_z_{w}"] = (log_vol - med) / (mad + EPS)
+        # Floor MAD to avoid division by near-zero (tick volumes can be identical)
+        mad_floored = mad.clip(lower=1e-3)
+        out[f"vol_z_{w}"] = ((log_vol - med) / mad_floored).clip(-10, 10)
 
     # Classic z-score over 60
     mu60 = log_vol.rolling(60, min_periods=1).mean()
@@ -213,6 +215,75 @@ def group_g(df: pd.DataFrame, atr: pd.Series, ema_periods: List[int]) -> pd.Data
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Group H – Williams Fractals (trend anchors)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def group_h(df: pd.DataFrame, atr: pd.Series) -> pd.DataFrame:
+    """
+    Williams Fractal features.
+    A fractal is confirmed 2 bars AFTER the pivot bar (no lookahead).
+
+    Up-fractal at bar i:   high[i] > high[i-1] AND high[i] > high[i+1] AND high[i] > high[i+2]
+    Down-fractal at bar i: low[i]  < low[i-1]  AND low[i]  < low[i+1]  AND low[i]  < low[i+2]
+
+    We shift by +2 so the feature only appears once confirmed (bar i+2 is the first
+    bar that can observe the full 5-bar window without lookahead).
+    """
+    h = df["high"]
+    l = df["low"]
+    c = df["close"]
+
+    # Raw pivot flags (require 2 bars on each side)
+    up_pivot   = (h > h.shift(1)) & (h > h.shift(-1)) & (h > h.shift(2)) & (h > h.shift(-2))
+    down_pivot = (l < l.shift(1)) & (l < l.shift(-1)) & (l < l.shift(2)) & (l < l.shift(-2))
+
+    # Shift +2 so the signal is only available AFTER confirmation (no lookahead)
+    up_frac   = up_pivot.shift(2).fillna(False).infer_objects(copy=False).astype(float)
+    down_frac = down_pivot.shift(2).fillna(False).infer_objects(copy=False).astype(float)
+
+    # Distance (bars) since last fractal — capped at 50
+    def bars_since(flag: pd.Series, cap: int = 50) -> pd.Series:
+        idx = flag[flag == 1].index
+        result = pd.Series(cap, index=flag.index, dtype=float)
+        prev = flag.index[0]
+        for i, ts in enumerate(flag.index):
+            if flag[ts] == 1:
+                prev = ts
+            result[ts] = min(i - flag.index.get_loc(prev), cap)
+        return result
+
+    # Vectorised version (faster than loop above)
+    def bars_since_vec(flag: pd.Series, cap: int = 50) -> pd.Series:
+        arr = flag.values.astype(bool)
+        out = np.full(len(arr), cap, dtype=float)
+        last = 0
+        for i in range(len(arr)):
+            if arr[i]:
+                last = i
+            out[i] = min(i - last, cap)
+        return pd.Series(out, index=flag.index)
+
+    bs_up   = bars_since_vec(up_frac)
+    bs_down = bars_since_vec(down_frac)
+
+    # Price level of last up/down fractal relative to close (in ATR units)
+    last_up_price = h.where(up_frac.astype(bool)).ffill()
+    last_dn_price = l.where(down_frac.astype(bool)).ffill()
+    dist_to_up_frac   = (last_up_price - c) / (atr + EPS)   # > 0 means fractal above price
+    dist_to_down_frac = (c - last_dn_price) / (atr + EPS)   # > 0 means fractal below price
+
+    out = pd.DataFrame({
+        "fractal_up":          up_frac,
+        "fractal_down":        down_frac,
+        "bars_since_up_frac":  bs_up / 50.0,    # normalised to [0,1]
+        "bars_since_dn_frac":  bs_down / 50.0,
+        "dist_to_up_frac_atr": dist_to_up_frac.clip(-10, 10),
+        "dist_to_dn_frac_atr": dist_to_down_frac.clip(-10, 10),
+    }, index=df.index)
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Master build function
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -237,8 +308,17 @@ def build_features(df: pd.DataFrame, cfg: Config) -> Tuple[pd.DataFrame, List[st
         timing_proxy(df)[["timing_high_first_proxy", "timing_surprise_proxy", "timing_continuous_proxy"]],
         group_f(df, atr, session_map),
         group_g(df, atr, cfg.features.ema_periods),
+        group_h(df, atr),           # Williams Fractals — trend anchors
     ]
     feat_df = pd.concat(parts, axis=1)
+
+    # ── Winsorize: clip each column to [-50, 50] before scaling ─────────────
+    # Prevents extreme outliers (e.g. vol_z spike at market open) from
+    # corrupting the RobustScaler median/IQR estimates and causing NaN loss.
+    feat_df = feat_df.clip(-50.0, 50.0)
+
+    # Replace any residual NaN/inf with 0
+    feat_df = feat_df.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     # ── Validate no lookahead: feature at t must not use any row > t ──────────
     # (the only forward references would be from shift(-n) which we never use)

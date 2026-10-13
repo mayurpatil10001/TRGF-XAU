@@ -38,8 +38,10 @@ async def poll_mt5(cfg: Config) -> None:
     try:
         import MetaTrader5 as mt5
         MT5_OK = True
-    except ImportError:
+    except (ImportError, AttributeError, Exception) as e:
+        logger.warning(f"MT5 import failed in API poller ({e}) — balance will show $0. Bot still trades independently.")
         MT5_OK = False
+        mt5 = None  # type: ignore
 
     # Initialize MT5 in this API process (separate from the live bot process)
     if MT5_OK:

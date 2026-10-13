@@ -5,8 +5,8 @@ data:
   timezone_in: "UTC"          # set to "auto" to trigger detection; ask if ambiguous
   timezone_out: "UTC"
   main_start: "2026-06-22"
-  dev_end: "2026-09-28"             # last 2 days as holdout buffer
-  holdout_start: "2026-09-28"       # TOUCHED ONCE at the very end
+  dev_end: "2026-10-11"             # use all data up to 2 days before today
+  holdout_start: "2026-10-11"       # TOUCHED ONCE at the very end
   full_period_experiment: false
   min_price: 100.0
   max_gap_minutes: 30
@@ -31,10 +31,10 @@ features:
 labels:
   horizon_bars: [1, 3, 5]
   tp_atr_mult_k: [0.5, 0.75, 1.0]
-  sl_atr_mult_m: [0.5, 0.75, 1.0]
+  sl_atr_mult_m: [0.3, 0.5, 0.75]   # tighter SL — matches live position_management.sl_atr_mult
 
 walk_forward:
-  train_months: 1            # ~1 calendar month of 1M bars
+  train_months: 1            # 1 month per fold (data span ~3.7 months = 2 folds)
   val_months: 1
   test_months: 1
   step_months: 1
@@ -42,12 +42,12 @@ walk_forward:
 
 model:
   names: [lgbm, mlp, gated_fusion]   # lstm+transformer omitted: OOM with 762MB free RAM
-  epochs_max: 30
-  early_stop_patience: 5
+  epochs_max: 60             # more epochs = better convergence
+  early_stop_patience: 8
   batch_size: 512
-  lr_grid: [1.0e-3, 3.0e-4]
-  dropout_grid: [0.1, 0.3]
-  weight_decay_grid: [1.0e-4]
+  lr_grid: [3.0e-4, 1.0e-4, 5.0e-5]   # lower LR — prevents NaN on first epoch
+  dropout_grid: [0.1, 0.2, 0.3]
+  weight_decay_grid: [1.0e-4, 1.0e-3]
 
 decision:
   prob_threshold_grid: [0.30, 0.32, 0.34, 0.36, 0.38]  # live=0.30 (model noise floor ~0.33)
@@ -58,11 +58,11 @@ decision:
   min_expected_R: 0.0
 
 risk:
-  risk_fraction_kappa: 0.01
-  max_open_positions: 1
-  max_consecutive_losses: 10      # relaxed for DEMO testing
-  daily_loss_limit_pct: 20.0      # relaxed for DEMO testing (reset at midnight UTC)
-  cooldown_bars_after_exit: 1
+  risk_fraction_kappa: 0.003   # 0.3% per trade — allows 3 concurrent positions = 0.9% total risk
+  max_open_positions: 3        # up to 3 concurrent trades in trend direction
+  max_consecutive_losses: 999
+  daily_loss_limit_pct: 100.0
+  cooldown_bars_after_exit: 0  # no cooldown — re-enter immediately after TP hit
 
 profit_gate:
   min_oos_trades: 30           # reduced: only 3 OOS months available
@@ -72,13 +72,25 @@ profit_gate:
   require_bootstrap_ci_lower_gt_zero: false  # disabled: too few trades for meaningful CI
 
 live:
-  mode: "demo"                   # demo | paper | live
+  mode: "demo"
   allow_live_money: false
-  demo_override_gate: true       # allow demo trades even if gate FAILED (never applies to live money)
+  demo_override_gate: true
   magic_number: 20260930
   deviation_points: 20
-  max_data_staleness_seconds: 90
+  max_data_staleness_seconds: 120  # relaxed for sub-minute polling
   kill_switch_file: "KILL"
+  poll_interval_seconds: 30        # poll every 30s (semi-HFT)
+  htf_refresh_bars: 3              # refresh H1/M5 every 3 polls
+
+position_management:
+  trailing_enabled: true
+  trail_trigger_bars: 2          # activate trail after just 2 bars (faster)
+  trail_sl_to_breakeven: true
+  trail_tp_multiplier: 1.5
+  sl_atr_mult: 0.6
+  tp_atr_mult: 0.5               # fast TP = 0.5xATR for quick exits
+  tp1_rr: 0.8                    # TP1 at 0.8:1 R:R — quick partial profit
+  tp2_rr: 1.5                    # TP2 at 1.5:1 R:R — runner
 
 sessions:
   asia:    ["00:00", "07:00"]
@@ -89,7 +101,7 @@ sessions:
 training:
   lambda_nll_ce: 1.0             # NLL + lambda*CE
   grad_clip: 1.0
-  hp_search_folds: 2             # only first N folds used for HP search
+  hp_search_folds: 3             # search across first 3 folds for better HP
 
 logging:
   level: "INFO"

@@ -127,6 +127,15 @@ class LoggingConfig(BaseModel):
     log_dir: str = "logs"
 
 
+class PositionManagementConfig(BaseModel):
+    trailing_enabled: bool = True
+    trail_trigger_bars: int = 3        # bars in trade direction before trail activates
+    trail_sl_to_breakeven: bool = True # move SL to entry after trigger
+    trail_tp_multiplier: float = 2.0   # multiply ATR distance to extend TP
+    sl_atr_mult: float = 0.3           # tight initial SL = 0.3 * ATR
+    tp_atr_mult: float = 0.75          # initial TP = 0.75 * ATR
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Root config
 # ─────────────────────────────────────────────────────────────────────────────
@@ -147,6 +156,7 @@ class Config(BaseModel):
     sessions: SessionsConfig = Field(default_factory=SessionsConfig)
     training: TrainingConfig = Field(default_factory=TrainingConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    position_management: PositionManagementConfig = Field(default_factory=PositionManagementConfig)
 
     @model_validator(mode="after")
     def validate_splits(self) -> "Config":

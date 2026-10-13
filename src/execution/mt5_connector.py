@@ -138,6 +138,30 @@ class MT5Connector:
         df = df.rename(columns={"tick_volume": "tick_volume", "spread": "spread"})
         return df
 
+    def get_htf_rates(self, timeframe: str = "H1", n_bars: int = 50) -> Optional[pd.DataFrame]:
+        """
+        Fetch higher-timeframe bars for trend analysis.
+        timeframe: "H1" | "M5" | "M15" | "H4"
+        """
+        if not MT5_AVAILABLE:
+            return None
+        import MetaTrader5 as _mt5
+        tf_map = {
+            "M5":  _mt5.TIMEFRAME_M5,
+            "M15": _mt5.TIMEFRAME_M15,
+            "H1":  _mt5.TIMEFRAME_H1,
+            "H4":  _mt5.TIMEFRAME_H4,
+        }
+        tf = tf_map.get(timeframe, _mt5.TIMEFRAME_H1)
+        rates = _mt5.copy_rates_from_pos(self.symbol, tf, 1, n_bars)
+        if rates is None or len(rates) == 0:
+            logger.warning(f"HTF {timeframe} fetch empty: {_mt5.last_error()}")
+            return None
+        df = pd.DataFrame(rates)
+        df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
+        return df
+
+
     def get_tick(self) -> Optional[dict]:
         """Return current bid/ask/spread from symbol_info_tick."""
         if not MT5_AVAILABLE:

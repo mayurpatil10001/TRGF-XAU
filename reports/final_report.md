@@ -1,6 +1,6 @@
 # TEGF-XAU Final Report
-**Generated**: 2026-09-30T18:55:23.154686+00:00
-**Config hash**: `ec657dd8fc96666d`
+**Generated**: 2026-10-13T14:06:12.021205+00:00
+**Config hash**: `bc9989b65f32dbb5`
 
 ---
 
@@ -14,8 +14,30 @@ Features from Groups A–G (returns, bar shape, volume, volatility, timing proxy
 See walk-forward fold artifacts in `artifacts/fold_*/`. Comparison table (directional accuracy, NLL, calibration) generated per fold.
 
 ## 4. Profit Gate
-_Gate not yet evaluated._
+**Status: FAILED**
 
+| Criterion | Value | Threshold | Pass |
+|-----------|-------|-----------|------|
+| total_net_profit_positive | -9981.64 | > 0 | ❌ |
+| bootstrap_ci_lower_gt_zero | -9.705748 | > 0 (95% CI lower bound) | ✅ |
+| profit_factor_gte_threshold | 0.3222 | >= 1.1 | ❌ |
+| positive_at_stress_spread | -10151.64 | > 0 at 1.5x spread | ❌ |
+| min_oos_trades | 1360 | >= 30 | ✅ |
+| positive_fold_fraction | 0.0 | >= 0.6 | ❌ |
+| holdout_positive | NOT_EVALUATED | > 0 (or NOT_EVALUATED for dev-phase) | ✅ |
+| shuffle_sanity_test | PASSED | MUST PASS | ✅ |
+
+### Diagnosis
+- Total round-trip cost = 0.4200 price units. At 1-min horizon, required |return| > 0.4200 just to break even before edge. 1-min moves vs 60-min moves have ~7.7x worse signal-to-cost ratio (sqrt-time scaling).
+- Achieved win rate: 0.35
+- Breakeven win rate: 0.6256
+
+**Next experiments:**
+- Increase horizon H to 5 or more bars
+- Tighten probability threshold (e.g., 0.65+)
+- Restrict to overlap session (highest liquidity, lower effective spread)
+- Meta-labelling: add a second filter model
+- Use expected-R threshold to only trade high-conviction signals
 
 ## 5. Holdout Result
 _Holdout not yet evaluated._

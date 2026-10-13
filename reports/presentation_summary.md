@@ -4,11 +4,11 @@
 Timing-Enhanced Gated Fusion for 1-Minute XAU/USD Forecasting.
 
 ## Key Results
-- **Profit Gate**: NOT EVALUATED
-- **OOS Trades**: N/A
-- **Total Net PnL**: N/A
-- **Profit Factor**: N/A
-- **Bootstrap 95% CI**: N/A
+- **Profit Gate**: FAILED
+- **OOS Trades**: 1360
+- **Total Net PnL**: -9981.64
+- **Profit Factor**: 0.3222
+- **Bootstrap 95% CI**: [-9.705748, -5.271011]
 
 ## Honest Caveats
 - 1-min cost-to-signal ratio is ~7.7× harder than hourly trading

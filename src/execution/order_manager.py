@@ -176,3 +176,27 @@ class OrderManager:
             return None
         logger.info(f"Position closed: ticket={ticket} retcode={result.retcode}")
         return result._asdict()
+
+    def modify_position(self, ticket: int, sl: float, tp: float) -> Optional[dict]:
+        """Modify SL and TP of an open position (trailing / break-even logic)."""
+        if not MT5_AVAILABLE:
+            logger.info(f"[mock] modify_position ticket={ticket} sl={sl:.2f} tp={tp:.2f}")
+            return {"retcode": 10009, "comment": "mock_modify"}
+
+        request = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "position": ticket,
+            "sl": self._round_price(sl),
+            "tp": self._round_price(tp),
+            "magic": self.cfg.live.magic_number,
+            "comment": "tegf_xau_trail",
+        }
+        result = mt5.order_send(request)
+        if result is None:
+            logger.error(f"Modify position failed: {mt5.last_error()}")
+            return None
+        if result.retcode == 10009:
+            logger.info(f"Position modified: ticket={ticket} sl={sl:.2f} tp={tp:.2f}")
+        else:
+            logger.warning(f"Modify position retcode={result.retcode}: {result.comment}")
+        return result._asdict()
