@@ -1,5 +1,7 @@
 """
 scripts/run_full_pipeline.py  — Steps 3+4: Full ML pipeline with honest validation
+# Memory: fold DataFrames pre-sliced during training to avoid OOM in trial loop.
+
 =====================================================================================
 Runs: data → features → extended labels (H=15,30,60) → walk-forward →
       probability calibration → meta-labeling → backtest (1.0/1.5/2.0x spread) →
@@ -308,6 +310,14 @@ def run_pipeline(cfg: Config, run_holdout: bool = False) -> None:
         atrs_te = df_dev[atr_col].values[te_idx] if atr_col in df_dev.columns else np.full(len(te_idx), cfg.features.atr_period)
         spreads_te = df_dev[spread_col].values[te_idx] if spread_col else np.full(len(te_idx), cfg.costs.spread_price_units)
 
+        # Pre-slice val/test DataFrames once here to avoid repeated OOM copies inside trial loop
+        df_val_fold  = df_dev.iloc[va_idx].copy().reset_index(drop=True)
+        df_test_fold = df_dev.iloc[te_idx].copy().reset_index(drop=True)
+
+        # ATRs/spreads for val fold (for meta-labeler)
+        atrs_va   = df_dev[atr_col].values[va_idx]  if atr_col in df_dev.columns else np.full(len(va_idx), 1.0)
+        spreads_va = df_dev[spread_col].values[va_idx] if spread_col else np.full(len(va_idx), cfg.costs.spread_price_units)
+
         fold_artifacts[fold_id] = {
             "tr_idx": tr_idx, "va_idx": va_idx, "te_idx": te_idx,
             "X_va": X_va, "X_te": X_te,
@@ -315,7 +325,9 @@ def run_pipeline(cfg: Config, run_holdout: bool = False) -> None:
             "probs_test_cal": probs_test_cal,
             "y_cls_va": y_cls[va_idx], "y_cls_te": y_cls[te_idx],
             "atrs_te": atrs_te, "spreads_te": spreads_te,
-            "df_test": df_dev.iloc[te_idx].copy().reset_index(drop=True),
+            "atrs_va": atrs_va, "spreads_va": spreads_va,
+            "df_test": df_test_fold,
+            "df_val":  df_val_fold,
         }
 
     if not fold_artifacts:
@@ -350,10 +362,10 @@ def run_pipeline(cfg: Config, run_holdout: bool = False) -> None:
 
             # Apply meta-labeler
             if use_meta:
-                # Train meta on val fold outcomes first
-                # We need val-fold actual trade outcomes — run a quick val backtest
-                df_val = df_dev.iloc[fa["va_idx"]].copy().reset_index(drop=True)
+                # Use pre-sliced df_val (avoids OOM from repeated copy of large DataFrame)
+                df_val = fa["df_val"]
                 lab_val = compute_labels_fast(df_val, cfg, H, k, m)
+                df_val = df_val.copy()  # local copy only for this trial
                 for col in ["label", "long_R", "short_R", "label_end_index"]:
                     if col in lab_val.columns:
                         df_val[col] = lab_val[col].values
@@ -364,15 +376,13 @@ def run_pipeline(cfg: Config, run_holdout: bool = False) -> None:
                     spread_mult=1.0, horizon_bars=H, k=k, m=m,
                     prob_threshold=threshold, fold_id=fold_id,
                 )
+                del df_val  # free immediately
                 if val_logs and len(val_logs) >= 10:
                     val_pnl = np.array([t.net_pnl for t in val_logs])
-                    atrs_va = df_dev["atr"].values[fa["va_idx"]] if "atr" in df_dev.columns else np.full(len(fa["va_idx"]), 0.3)
-                    spreads_va = (df_dev["spread"].values[fa["va_idx"]] if "spread" in df_dev.columns
-                                  else np.full(len(fa["va_idx"]), cfg.costs.spread_price_units))
 
                     meta = MetaLabeler(cfg, meta_threshold=0.55)
                     meta_trained = meta.fit(
-                        fa["X_va"], fa["probs_val"], spreads_va, atrs_va, val_pnl
+                        fa["X_va"], fa["probs_val"], fa["spreads_va"], fa["atrs_va"], val_pnl
                     )
 
                     if meta_trained:

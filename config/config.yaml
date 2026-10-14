@@ -4,9 +4,9 @@ data:
   path: data/raw/xauusd_1m.csv
   timezone_in: "UTC"
   timezone_out: "UTC"
-  main_start: "2026-06-22"
-  dev_end: "2026-10-11"
-  holdout_start: "2026-10-11"      # TOUCHED ONCE at the very end — DO NOT CHANGE
+  main_start: "2024-10-14"
+  dev_end: "2026-08-31"
+  holdout_start: "2026-09-01"      # TOUCHED ONCE at the very end — DO NOT CHANGE
   full_period_experiment: false
   min_price: 100.0
   max_gap_minutes: 30
@@ -36,10 +36,10 @@ labels:
   sl_atr_mult_m: [0.5, 0.75, 1.0]
 
 walk_forward:
-  train_months: 1           # data span ~3.7 months → 1-month folds gives 1-2 folds
-  val_months: 1
-  test_months: 1
-  step_months: 1
+  train_months: 6           # data span ~3.7 months → 1-month folds gives 1-2 folds
+  val_months: 2
+  test_months: 2
+  step_months: 2
   embargo_trading_days: 1   # 1 day (~1440 min-bars) embargo after each eval period
 
 model:
