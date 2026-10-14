@@ -113,6 +113,66 @@ class MT5Connector:
         logger.error(f"Could not resolve symbol: {base}")
         return None
 
+    # ── Convenience wrappers (called by run_bot_v2) ───────────────────────────
+
+    def connect(self) -> bool:
+        """initialize() + login() + resolve_symbol() in one call."""
+        if not self.initialize():
+            return False
+        if not self.login():
+            return False
+        sym = self.resolve_symbol()
+        if sym is None:
+            logger.error("Symbol resolution failed. Aborting.")
+            return False
+        # Ensure symbol is visible in Market Watch so copy_rates_from_pos works
+        if not mt5.symbol_select(sym, True):
+            logger.warning(
+                f"symbol_select({sym}) failed: {mt5.last_error()}. "
+                f"Add {sym} to MT5 Market Watch manually if bars are missing."
+            )
+        else:
+            logger.info(f"[STARTUP] {sym} subscribed in Market Watch.")
+        return True
+
+    def get_bars(
+        self,
+        symbol: str,
+        timeframe: str = "M1",
+        count: int = 200,
+    ) -> Optional[list]:
+        """
+        Fetch last `count` closed bars and return as list-of-dicts
+        (compatible with pd.DataFrame(bars) calls in run_bot_v2).
+        Uses position=1 to skip the currently-forming bar.
+        """
+        if not MT5_AVAILABLE:
+            return None
+        tf_map = {
+            "M1":  mt5.TIMEFRAME_M1,
+            "M5":  mt5.TIMEFRAME_M5,
+            "M15": mt5.TIMEFRAME_M15,
+            "H1":  mt5.TIMEFRAME_H1,
+            "H4":  mt5.TIMEFRAME_H4,
+        }
+        tf = tf_map.get(timeframe, mt5.TIMEFRAME_M1)
+        rates = mt5.copy_rates_from_pos(symbol or self.symbol, tf, 1, count)
+        if rates is None or len(rates) == 0:
+            logger.warning(
+                f"get_bars({symbol}, {timeframe}, {count}) returned empty: {mt5.last_error()}. "
+                f"Ensure {symbol} is visible in MT5 Market Watch."
+            )
+            return None
+        import pandas as pd
+        df = pd.DataFrame(rates)
+        df["time"] = pd.to_datetime(df["time"], unit="s", utc=True).astype(np.int64) // 10**9
+        # Return as list-of-dicts so pd.DataFrame(bars) works in bot loop
+        return df.to_dict("records")
+
+    def disconnect(self) -> None:
+        """Alias for shutdown()."""
+        self.shutdown()
+
     @property
     def symbol(self) -> str:
         return self._symbol or self.cfg.symbol.name

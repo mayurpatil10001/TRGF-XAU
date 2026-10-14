@@ -307,6 +307,11 @@ def run_bot(cfg: Config) -> None:
             # ── Wait for new bar ──────────────────────────────────────────────
             bars = connector.get_bars(cfg.symbol.name, "M1", count=max(cfg.features.lookback + 20, 30))
             if bars is None or len(bars) < cfg.features.lookback + 5:
+                logger.warning(
+                    f"[BAR WAIT] get_bars returned {len(bars) if bars is not None else 'None'} bars "
+                    f"(need >={cfg.features.lookback + 5}). "
+                    f"Check MT5 Market Watch has {cfg.symbol.name} subscribed."
+                )
                 time.sleep(poll_s)
                 continue
 
