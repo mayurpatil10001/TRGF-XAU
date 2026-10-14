@@ -145,9 +145,12 @@ class MT5Connector:
         Fetch last `count` closed bars and return as list-of-dicts
         (compatible with pd.DataFrame(bars) calls in run_bot_v2).
         Uses position=1 to skip the currently-forming bar.
+        Always uses the resolved symbol (e.g. XAUUSDm) even if caller passes base name.
         """
         if not MT5_AVAILABLE:
             return None
+        # Always use the resolved symbol (may have suffix like 'm', '.a', etc.)
+        effective_symbol = self._symbol or symbol
         tf_map = {
             "M1":  mt5.TIMEFRAME_M1,
             "M5":  mt5.TIMEFRAME_M5,
@@ -156,11 +159,11 @@ class MT5Connector:
             "H4":  mt5.TIMEFRAME_H4,
         }
         tf = tf_map.get(timeframe, mt5.TIMEFRAME_M1)
-        rates = mt5.copy_rates_from_pos(symbol or self.symbol, tf, 1, count)
+        rates = mt5.copy_rates_from_pos(effective_symbol, tf, 1, count)
         if rates is None or len(rates) == 0:
             logger.warning(
-                f"get_bars({symbol}, {timeframe}, {count}) returned empty: {mt5.last_error()}. "
-                f"Ensure {symbol} is visible in MT5 Market Watch."
+                f"get_bars({effective_symbol}, {timeframe}, {count}) returned empty: {mt5.last_error()}. "
+                f"Ensure {effective_symbol} is visible in MT5 Market Watch."
             )
             return None
         import pandas as pd

@@ -107,6 +107,8 @@ class LiveConfig(BaseModel):
     deviation_points: int = 20
     max_data_staleness_seconds: int = 90
     kill_switch_file: str = "KILL"
+    poll_interval_seconds: int = 60    # seconds between bar polls
+    htf_refresh_bars: int = 5          # refresh H1/M5 every N polls
 
 
 class SessionsConfig(BaseModel):
