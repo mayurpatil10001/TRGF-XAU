@@ -1,11 +1,15 @@
 # TEGF-XAU: Time-Series Ensemble & Gated Fusion for Gold (XAU/USD)
 
 [![System Status: Active Development](https://img.shields.io/badge/System%20Status-Active%20Development-blue.svg)](#current-project-status--readiness-matrix)
-[![Profit Gate: FAILED (Dev Phase)](https://img.shields.io/badge/Profit%20Gate-FAILED%20(Dev%20Phase)-red.svg)](#the-institutional-profit-gate-audit)
+[![Profit Gate: FAILED — Need More Data](https://img.shields.io/badge/Profit%20Gate-FAILED%20(Insufficient%20Data)-red.svg)](#validation-results)
 [![Execution Mode: DEMO / PAPER](https://img.shields.io/badge/Execution%20Mode-DEMO%20%2F%20PAPER-green.svg)](#live-trading-bot--mt5-execution-architecture)
-[![UI: React 19 + TypeScript + Vite](https://img.shields.io/badge/UI-React%2019%20%2B%20TypeScript%20%2B%20Vite-61dafb.svg)](#frontend-architecture--react-live-dashboard)
-[![Backend: FastAPI + WebSockets](https://img.shields.io/badge/Backend-FastAPI%20%2B%20WebSockets-009688.svg)](#backend--api-infrastructure-fastapi--websockets)
-[![Broker Bridge: MetaTrader 5](https://img.shields.io/badge/Broker%20Bridge-MetaTrader%205-orange.svg)](#execution-engine--metatrader-5-bridge)
+[![Tests: 48/48 passing](https://img.shields.io/badge/Tests-48%2F48%20passing-brightgreen.svg)](#testing-suite--invariant-verification)
+[![Bot: ML Bar Bot v2](https://img.shields.io/badge/Bot-ML%20Bar%20Bot%20v2-blue.svg)](#live-trading-bot--mt5-execution-architecture)
+
+> **Validation Status (2026-10-14):** 72 configurations evaluated across H∈[15,30,60], k∈[1.0,1.5,2.0],
+> threshold∈[0.55–0.70], meta∈[on,off]. **All 72 FAILED.** Root cause: only 3.7 months of data
+> → 1 walk-forward fold → 1–8 OOS trades per trial (gate requires ≥100). The code, tests, and
+> pipeline are correct. **Next step: download ≥12 months of data.** See `reports/final_report.md`.
 
 ---
 

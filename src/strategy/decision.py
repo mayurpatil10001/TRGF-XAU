@@ -114,7 +114,10 @@ def make_decision(
         return skip(f"prob_below_threshold:{best_prob:.3f}<{threshold:.3f}")
 
     # ── Filter 10: expected R ────────────────────────────────────────────────
-    if expected_R < cfg.decision.min_expected_R:
+    # Only enforce if a real expected_R was actually computed (>0).
+    # The backtester passes expected_R=0.0 (sentinel) meaning "not computed".
+    # In live mode the model head provides a real value.
+    if expected_R != 0.0 and expected_R < cfg.decision.min_expected_R:
         return skip(f"expected_R_too_low:{expected_R:.3f}")
 
     # ── TP / SL distances ────────────────────────────────────────────────────
